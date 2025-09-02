@@ -31,11 +31,16 @@ export default async function handler(req, res) {
       res.json(data);
     } else if (contentType && contentType.includes('text/html')) {
       const html = await response.text();
-      // Replace absolute URLs in HTML to go through proxy
-      const modifiedHtml = html.replace(
-        /https:\/\/robot-sms\.xyz/g, 
-        req.headers.host ? `https://${req.headers.host}/api` : '/api'
-      );
+      const baseUrl = req.headers.host ? `https://${req.headers.host}/api` : '/api';
+      
+      // Replace various URL patterns to go through proxy
+      const modifiedHtml = html
+        .replace(/https:\/\/robot-sms\.xyz/g, baseUrl)
+        .replace(/href="\/([^"]*)/g, `href="${baseUrl}/$1`)
+        .replace(/src="\/([^"]*)/g, `src="${baseUrl}/$1`)
+        .replace(/action="\/([^"]*)/g, `action="${baseUrl}/$1`)
+        .replace(/url\(\/([^)]*)/g, `url(${baseUrl}/$1`);
+      
       res.send(modifiedHtml);
     } else {
       const data = await response.text();
