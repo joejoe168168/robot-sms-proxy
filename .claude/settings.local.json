@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:robot-sms-proxy.vercel.app)",
+      "WebFetch(domain:robot-sms.xyz)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

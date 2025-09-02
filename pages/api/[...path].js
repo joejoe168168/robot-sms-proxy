@@ -88,7 +88,25 @@ export default async function handler(req, res) {
         .replace(/fetch\("\/([^"]*)"/g, `fetch("${baseUrl}/$1"`)
         .replace(/fetch\('\/([^']*)'/g, `fetch('${baseUrl}/$1'`)
         .replace(/axios\.get\("\/([^"]*)"/g, `axios.get("${baseUrl}/$1"`)
-        .replace(/axios\.post\("\/([^"]*)"/g, `axios.post("${baseUrl}/$1"`);
+        .replace(/axios\.post\("\/([^"]*)"/g, `axios.post("${baseUrl}/$1"`)
+        // Fix Vite asset paths in __vite__mapDeps arrays
+        .replace(/"assets\/([^"]*)"/g, `"${baseUrl}/assets/$1"`)
+        .replace(/'assets\/([^']*)'/g, `'${baseUrl}/assets/$1'`)
+        // Fix general relative asset paths
+        .replace(/"([^"]*\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))"/g, (match, path) => {
+          // Only rewrite if it's a relative path (doesn't start with http/https or already includes baseUrl)
+          if (!path.startsWith('http') && !path.includes(baseUrl)) {
+            return `"${baseUrl}/${path}"`;
+          }
+          return match;
+        })
+        .replace(/'([^']*\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))'/g, (match, path) => {
+          // Only rewrite if it's a relative path (doesn't start with http/https or already includes baseUrl)
+          if (!path.startsWith('http') && !path.includes(baseUrl)) {
+            return `'${baseUrl}/${path}'`;
+          }
+          return match;
+        });
       
       res.setHeader('Content-Type', 'application/javascript');
       res.send(modifiedJs);
