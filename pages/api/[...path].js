@@ -92,21 +92,33 @@ export default async function handler(req, res) {
         // Fix Vite asset paths in __vite__mapDeps arrays
         .replace(/"assets\/([^"]*)"/g, `"${baseUrl}/assets/$1"`)
         .replace(/'assets\/([^']*)'/g, `'${baseUrl}/assets/$1'`)
-        // Fix general relative asset paths
+        // Fix ES module imports - handle ./ relative imports
+        .replace(/from"\.\/([^"]+)"/g, `from"${baseUrl}/$1"`)
+        .replace(/from'\.\/([^']+)'/g, `from'${baseUrl}/$1'`)
+        .replace(/import"\.\/([^"]+)"/g, `import"${baseUrl}/$1"`)
+        .replace(/import'\.\/([^']+)'/g, `import'${baseUrl}/$1'`)
+        // Fix asset references that start with / (avoiding double slashes)
+        .replace(/"\//g, `"${baseUrl}/`)
+        .replace(/'\//g, `'${baseUrl}/`)
+        // Fix general relative asset paths (but avoid ones already processed)
         .replace(/"([^"]*\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))"/g, (match, path) => {
-          // Only rewrite if it's a relative path (doesn't start with http/https or already includes baseUrl)
-          if (!path.startsWith('http') && !path.includes(baseUrl)) {
-            return `"${baseUrl}/${path}"`;
+          // Skip if already has baseUrl or is absolute
+          if (path.includes(baseUrl) || path.startsWith('http') || path.startsWith('data:')) {
+            return match;
           }
-          return match;
+          // Handle relative paths that don't start with /
+          return `"${baseUrl}/${path.replace(/^\.?\//, '')}"`;
         })
         .replace(/'([^']*\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))'/g, (match, path) => {
-          // Only rewrite if it's a relative path (doesn't start with http/https or already includes baseUrl)
-          if (!path.startsWith('http') && !path.includes(baseUrl)) {
-            return `'${baseUrl}/${path}'`;
+          // Skip if already has baseUrl or is absolute
+          if (path.includes(baseUrl) || path.startsWith('http') || path.startsWith('data:')) {
+            return match;
           }
-          return match;
-        });
+          // Handle relative paths that don't start with /
+          return `'${baseUrl}/${path.replace(/^\.?\//, '')}'`;
+        })
+        // Clean up any double slashes that might have been created
+        .replace(new RegExp(`${baseUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}//+`, 'g'), `${baseUrl}/`);
       
       res.setHeader('Content-Type', 'application/javascript');
       res.send(modifiedJs);
