@@ -1,18 +1,6 @@
 export default async function handler(req, res) {
-  const { path } = req.query;
-  const pathString = Array.isArray(path) ? path.join('/') : (path || '');
-  
-  // Target the robot-sms.xyz domain
-  const targetUrl = `https://robot-sms.xyz/${pathString}`;
-  const url = new URL(targetUrl);
-  
-  // Add query parameters
-  const searchParams = new URLSearchParams(req.url.split('?')[1] || '');
-  searchParams.forEach((value, key) => {
-    if (key !== 'path') {
-      url.searchParams.append(key, value);
-    }
-  });
+  // When accessing /api/, proxy to robot-sms.xyz root
+  const targetUrl = 'https://robot-sms.xyz/';
   
   try {
     // Forward headers but remove problematic ones
@@ -22,7 +10,7 @@ export default async function handler(req, res) {
     delete headers['x-forwarded-proto'];
     delete headers['x-forwarded-host'];
     
-    const response = await fetch(url.toString(), {
+    const response = await fetch(targetUrl, {
       method: req.method,
       headers: headers,
       body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
