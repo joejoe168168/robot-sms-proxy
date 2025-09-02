@@ -9,37 +9,58 @@ export default async function handler(req, res) {
     delete headers['x-forwarded-for'];
     delete headers['x-forwarded-proto'];
     delete headers['x-forwarded-host'];
+    delete headers['x-real-ip'];
+    delete headers.referer;
+    delete headers.origin;
+    
+    // Add CORS headers for cross-origin requests
+    headers['access-control-allow-origin'] = '*';
+    headers['access-control-allow-methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
+    headers['access-control-allow-headers'] = 'Content-Type, Authorization';
+    
+    let body = undefined;
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
+      body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    }
     
     const response = await fetch(targetUrl, {
       method: req.method,
       headers: headers,
-      body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
+      body: body,
     });
+    
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     
     // Forward response headers
     response.headers.forEach((value, key) => {
-      if (key !== 'content-encoding' && key !== 'transfer-encoding') {
+      if (key !== 'content-encoding' && key !== 'transfer-encoding' && key !== 'content-length') {
         res.setHeader(key, value);
       }
     });
     
     res.status(response.status);
     
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
+    const contentType = response.headers.get('content-type') || '';
+    
+    if (contentType.includes('application/json')) {
       const data = await response.json();
       res.json(data);
-    } else if (contentType && contentType.includes('text/html')) {
+    } else if (contentType.includes('text/html')) {
       const html = await response.text();
       const baseUrl = req.headers.host ? `https://${req.headers.host}/api` : '/api';
       
-      // Replace various URL patterns to go through proxy
+      // Comprehensive URL rewriting for HTML
       const modifiedHtml = html
         .replace(/https:\/\/robot-sms\.xyz/g, baseUrl)
-        .replace(/href="\/([^"]*)/g, `href="${baseUrl}/$1`)
-        .replace(/src="\/([^"]*)/g, `src="${baseUrl}/$1`)
-        .replace(/action="\/([^"]*)/g, `action="${baseUrl}/$1`)
-        .replace(/url\(\/([^)]*)/g, `url(${baseUrl}/$1`);
+        .replace(/http:\/\/robot-sms\.xyz/g, baseUrl)
+        .replace(/"\/([^"]*?)"/g, `"${baseUrl}/$1"`)
+        .replace(/'\/([^']*?)'/g, `'${baseUrl}/$1'`)
+        .replace(/url\(\/([^)]*?)\)/g, `url(${baseUrl}/$1)`)
+        .replace(/src=\/([^\s>]*)/g, `src=${baseUrl}/$1`)
+        .replace(/href=\/([^\s>]*)/g, `href=${baseUrl}/$1`);
       
       res.send(modifiedHtml);
     } else {
